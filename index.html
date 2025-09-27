@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard de Gestão de Projeto</title>
+  <!-- Tailwind CSS for quick, clean styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- SheetJS to read Excel (XLSX) files in the browser) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    .card { @apply bg-white rounded-2xl shadow p-6; }
+    .grid-auto { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 1rem; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-7xl mx-auto p-6 space-y-6">
+    <header class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <h1 class="text-2xl md:text-3xl font-bold">📊 Dashboard de Gestão de Projeto</h1>
+      <label class="inline-flex items-center gap-3">
+        <input id="file" type="file" accept=".xlsx,.xls" class="block text-sm" />
+        <span class="text-sm text-gray-600">Envie a planilha no mesmo padrão da amostra</span>
+      </label>
+    </header>
+
+    <!-- KPIs / Scoreboard -->
+    <section id="kpis" class="grid-auto"></section>
+
+    <!-- Charts -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="card">
+        <h2 class="text-lg font-semibold mb-4">Visão Geral por Status</h2>
+        <canvas id="statusChart" height="160"></canvas>
+      </div>
+      <div class="card">
+        <h2 class="text-lg font-semibold mb-4">Tarefas em Execução por Responsável</h2>
+        <canvas id="ownerBar" height="160"></canvas>
+      </div>
+      <div class="card lg:col-span-2">
+        <h2 class="text-lg font-semibold mb-4">Curva S (Planejado x Real)</h2>
+        <canvas id="scurve" height="220"></canvas>
+        <p class="text-xs text-gray-500 mt-3">Nota: A Curva Real é estimada com base no progresso atual por tarefa, assumindo evolução não superior ao planejado até a data de hoje.</p>
+      </div>
+    </section>
+
+    <footer class="text-xs text-gray-500 pt-4">Feito para planilhas com as colunas originais: <em>"Código", "Nome (O quê?)", "Responsável pela ação (Quem?)", "Data de início (Quando?)", "Data de término (Quando?)", "Progresso", "Status"</em>. Datas no formato ISO (YYYY-MM-DD) são recomendadas.</footer>
+  </div>
+
+<script>
+// --- Helpers ---
+const pct = (n) => `${(n*100).toFixed(1)}%`;
+const parsePct = (str) => {
+  if (str === null || str === undefined) return NaN;
+  if (typeof str === 'number') return str; // já em número
+  const s = String(str).replace(/%/g,'').replace(',', '.').trim();
+  const v = parseFloat(s);
+  return isNaN(v) ? NaN : v;
+};
+const parseDate = (v) => {
+  if (!v) return null;
+  // SheetJS geralmente fornece strings ou números (datas Excel)
+  if (typeof v === 'number') { // Excel date serial
+    return XLSX.SSF ? XLSX.SSF.parse_date_code(v) : null;
+  }
+  const d = new Date(v);
+  return isNaN(d) ? null : d;
+};
+const serialToDate = (serial) => {
+  // Converte serial Excel para Date
+  const utc_days = Math.floor(serial - 25569);
+  const utc_value = utc_days * 86400; 
+  const date_info = new Date(utc_value * 1000);
+  const fractional_day = serial - Math.floor(serial) + 1e-10;
+  let total_seconds = Math.floor(86400 * fractional_day);
+  const seconds = total_seconds % 60; total_seconds = Math.floor(total_seconds / 60);
+  const minutes = total_seconds % 60; const hours = Math.floor(total_seconds / 60);
+  date_info.setUTCHours(hours, minutes, seconds);
+  return date_info;
+};
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function daysBetween(a, b) {
+  const ms = b.getTime() - a.getTime();
+  return ms / (1000*60*60*24);
+}
+
+function plannedPercentForDate(start, end, date) {
+  if (!start || !end) return NaN;
+  if (date < start) return 0;
+  if (date > end) return 100;
+  const total = daysBetween(start, end);
+  return total <= 0 ? 100 : clamp( (daysBetween(start, date) / total) * 100, 0, 100);
+}
+
+function formatDateLabel(d) {
+  return d.toISOString().slice(0,10);
+}
+
+// --- State ---
+let charts = {};
+
+// --- Rendering ---
+function renderKPIs(data) {
+  const container = document.getElementById('kpis');
+  container.innerHTML = '';
+
+  const card = (label, value, sub) => `
+    <div class="card">
+      <div class="text-sm text-gray-500">${label}</div>
+      <div class="text-3xl font-semibold">${value}</div>
+      ${sub ? `<div class='text-xs text-gray-500 mt-2'>${sub}</div>` : ''}
+    </div>`;
+
+  container.insertAdjacentHTML('beforeend', card('Ações Totais', data.total));
+  container.insertAdjacentHTML('beforeend', card('Concluídas', data.done));
+  container.insertAdjacentHTML('beforeend', card('Em Execução', data.doing));
+  container.insertAdjacentHTML('beforeend', card('Aguardando Início', data.waiting));
+  container.insertAdjacentHTML('beforeend', card('Atrasadas', data.late,
+    `Critério: progresso < planejado (tolerância ${data.lateThreshold} pp)`));
+  container.insertAdjacentHTML('beforeend', card('Vencidas', data.overdue,
+    'Prazo ultrapassado e não concluídas'));
+}
+
+function renderStatusChart(ctx, statusCounts) {
+  charts.status && charts.status.destroy();
+  charts.status = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(statusCounts),
+      datasets: [{ data: Object.values(statusCounts) }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+  });
+}
+
+function renderOwnerBar(ctx, ownerCounts) {
+  const labels = Object.keys(ownerCounts);
+  const values = Object.values(ownerCounts);
+  charts.owner && charts.owner.destroy();
+  charts.owner = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Em execução', data: values }] },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      scales: { x: { beginAtZero: true } },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function renderSCurve(ctx, dates, planned, actual) {
+  charts.scurve && charts.scurve.destroy();
+  charts.scurve = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates.map(formatDateLabel),
+      datasets: [
+        { label: 'Planejado', data: planned, tension: 0.25 },
+        { label: 'Real (estimado)', data: actual, tension: 0.25 }
+      ]
+    },
+    options: {
+      responsive: true,
+      stacked: false,
+      scales: { y: { min: 0, max: 100, ticks: { callback: (v)=> v+ '%' } } },
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+}
+
+// --- Data pipeline ---
+function buildFromRows(rows) {
+  const today = new Date();
+  const statusCounts = {};
+  const ownersExec = {};
+
+  let total = 0, done = 0, doing = 0, waiting = 0;
+  let late = 0, overdue = 0;
+  const lateThreshold = 5; // pontos percentuais
+
+  // For S-curve
+  const tasks = [];
+  let minStart = null, maxEnd = null;
+
+  rows.forEach(r => {
+    const status = String(r['Status'] ?? '').trim();
+    const resp = String(r['Responsável pela ação (Quem?)'] ?? '').trim() || '—';
+    let p = parsePct(r['Progresso']);
+    if (isNaN(p)) p = 0;
+
+    // Dates (could be string ISO or Excel serial)
+    let start = r['Data de início (Quando?)'];
+    let end = r['Data de término (Quando?)'];
+
+    if (typeof start === 'number') start = serialToDate(start); else start = parseDate(start);
+    if (typeof end === 'number') end = serialToDate(end); else end = parseDate(end);
+
+    total++;
+    statusCounts[status] = (statusCounts[status]||0)+1;
+
+    if (status.toLowerCase().includes('conclu')) done++;
+    else if (status.toLowerCase().includes('execu')) doing++;
+    else if (status.toLowerCase().includes('aguard')) waiting++;
+
+    // Overdue (deadline passed and not completed)
+    if (end && today > end && !status.toLowerCase().includes('conclu')) overdue++;
+
+    // Late (progress behind planned with tolerance)
+    if (start && end && today >= start && !status.toLowerCase().includes('conclu')) {
+      const plannedToday = plannedPercentForDate(start, end, today);
+      if (plannedToday - p > lateThreshold) late++;
+    }
+
+    // Owner chart: only "Em execução"
+    if (status.toLowerCase().includes('execu')) {
+      ownersExec[resp] = (ownersExec[resp]||0)+1;
+    }
+
+    // For S-curve
+    if (start && end) {
+      tasks.push({ start, end, progress: clamp(p,0,100) });
+      if (!minStart || start < minStart) minStart = start;
+      if (!maxEnd || end > maxEnd) maxEnd = end;
+    }
+  });
+
+  // Build S-curve arrays (daily)
+  let dates = [], planned = [], actual = [];
+  if (minStart && maxEnd) {
+    const dayMs = 24*60*60*1000;
+    for (let t = new Date(minStart.getFullYear(), minStart.getMonth(), minStart.getDate()); t <= maxEnd; t = new Date(t.getTime()+dayMs)) {
+      let pvSum = 0, evSum = 0, n = tasks.length;
+      tasks.forEach(task => {
+        const pv = plannedPercentForDate(task.start, task.end, t);
+        pvSum += pv;
+        // EV estimada = mínimo entre progresso atual e PV na data
+        evSum += Math.min(task.progress, pv);
+      });
+      dates.push(new Date(t));
+      planned.push(n ? pvSum / n : 0);
+      actual.push(n ? evSum / n : 0);
+    }
+  }
+
+  return {
+    scoreboard: { total, done, doing, waiting, late, overdue, lateThreshold },
+    statusCounts,
+    ownersExec,
+    scurve: { dates, planned, actual }
+  };
+}
+
+function loadFromWorkbook(workbook) {
+  // Use a planilha da primeira aba "Sheet1" ou a primeira disponível
+  const sheetName = workbook.SheetNames[0];
+  const ws = workbook.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
+  const data = buildFromRows(rows);
+
+  // KPIs
+  renderKPIs(data.scoreboard);
+
+  // Charts
+  renderStatusChart(document.getElementById('statusChart'), data.statusCounts);
+  renderOwnerBar(document.getElementById('ownerBar'), data.ownersExec);
+  renderSCurve(document.getElementById('scurve'), data.scurve.dates, data.scurve.planned, data.scurve.actual);
+}
+
+// --- File input ---
+const input = document.getElementById('file');
+input.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const data = new Uint8Array(evt.target.result);
+    const wb = XLSX.read(data, { type: 'array' });
+    loadFromWorkbook(wb);
+  };
+  reader.readAsArrayBuffer(file);
+});
+</script>
+</body>
+</html>
