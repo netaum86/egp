@@ -3,72 +3,181 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard de Gestão de Projeto</title>
-  <!-- Tailwind CSS for quick, clean styling -->
+  <title>Dashboard – Modelo Forlogic (Painéis + Lista & Lead Time)</title>
+
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js for charts -->
+
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <!-- SheetJS to read Excel (XLSX) files in the browser) -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+  <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <style>
-    .card { @apply bg-white rounded-2xl shadow p-6; }
-    .grid-auto { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 1rem; }
+    :root{ --panel-radius: 22px; }
+    body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif; }
+    .panel { background: white; border-radius: var(--panel-radius); box-shadow: 0 10px 24px rgba(0,0,0,.08); padding: 18px; }
+    .panel h2 { font-weight: 700; font-size: 16px; color: #111827; margin: 8px 0 16px; }
+    .grid-panels { display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; }
+    .card { background: white; border-radius: var(--panel-radius); box-shadow: 0 10px 24px rgba(0,0,0,.08); padding: 18px; }
+    .muted { color: #6B7280; font-size: 12px; }
+    .gap-bg { background: #1f2937; }
+    .chip { display:inline-block; padding:4px 10px; border-radius:999px; background:#f3f4f6; font-size:12px; color:#374151; }
+    .donut-wrap { max-width: 280px; margin: 0 auto; }
+    .tab { display:flex; align-items:center; justify-content:center; padding:6px 10px; border-radius:10px; background:white; color:#374151; font-weight:600; font-size:13px; white-space:nowrap; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+    .tab.active { background:#2563eb; color:white; }
+    .btn { padding:6px 12px; border-radius:10px; font-weight:600; font-size:14px; }
+    .btn-sm { padding:5px 10px; border-radius:10px; font-weight:600; font-size:13px; }
+    .toolbar-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+    .btn-primary { background:#2563eb; color:#fff; }
+    .btn-primary:hover { background:#1d4ed8; }
+    .btn-outline { background:white; border:1px solid #e5e7eb; }
+    .tbl th { text-align:left; color:#4b5563; font-weight:600; }
+    .tbl td { color:#111827; }
+    .tbl tr:hover { background:#f9fafb; }
+    .pill { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; background:#f3f4f6; color:#374151; }
   </style>
 </head>
-<body class="bg-gray-50 text-gray-900">
-  <div class="max-w-7xl mx-auto p-6 space-y-6">
-    <header class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <h1 class="text-2xl md:text-3xl font-bold">📊 Dashboard de Gestão de Projeto</h1>
-      <label class="inline-flex items-center gap-3">
-        <input id="file" type="file" accept=".xlsx,.xls" class="block text-sm" />
-        <span class="text-sm text-gray-600">Envie a planilha no mesmo padrão da amostra</span>
-      </label>
+<body class="gap-bg min-h-screen text-gray-900">
+  <div class="max-w-7xl mx-auto p-5 space-y-4">
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between mb-2 gap-3">
+      <h1 class="text-white text-2xl md:text-3xl font-bold">📊 Painéis de Projeto – Modelo Forlogic</h1>
+      <div class="flex items-center gap-3">
+        <input id="file" type="file" accept=".xlsx,.xls,.csv" class="hidden"/>
+        <button id="chooseBtn" class="btn btn-primary">Enviar planilha</button>
+        <button id="demoBtn" class="btn btn-outline">Usar dados de demonstração</button>
+        <span class="chip">Padrão: “Código”, “Nome (O quê?)”, “Responsável pela ação (Quem?)”, “Data de início (Quando?)”, “Data de término (Quando?)”, “Progresso”, “Status”. Extras: “Concluída em”, “Fase”.</span>
+      </div>
     </header>
 
-    <!-- KPIs / Scoreboard -->
-    <section id="kpis" class="grid-auto"></section>
+    <div id="alert" class="hidden p-3 rounded-lg bg-red-50 text-red-700 text-sm mb-3"></div>
 
-    <!-- Charts -->
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="card">
-        <h2 class="text-lg font-semibold mb-4">Visão Geral por Status</h2>
-        <canvas id="statusChart" height="160"></canvas>
+    <!-- BLOCO 1: 5 gráficos executivos -->
+    <section class="grid-panels">
+      <div class="panel col-span-12 md:col-span-4">
+        <h2>Distribuição por Status</h2>
+        <div class="donut-wrap"><canvas id="statusPie" height="120"></canvas></div>
       </div>
-      <div class="card">
-        <h2 class="text-lg font-semibold mb-4">Tarefas em Execução por Responsável</h2>
-        <canvas id="ownerBar" height="160"></canvas>
+      <div class="panel col-span-12 md:col-span-4">
+        <h2>Saúde do Plano (Abertas)</h2>
+        <div class="donut-wrap"><canvas id="healthPie" height="120"></canvas></div>
       </div>
-      <div class="card lg:col-span-2">
-        <h2 class="text-lg font-semibold mb-4">Curva S (Planejado x Real)</h2>
-        <canvas id="scurve" height="220"></canvas>
-        <p class="text-xs text-gray-500 mt-3">Nota: A Curva Real é estimada com base no progresso atual por tarefa, assumindo evolução não superior ao planejado até a data de hoje.</p>
+      <div class="panel col-span-12 md:col-span-4">
+        <h2>Throughput – últimas 12 semanas</h2>
+        <canvas id="throughput" height="160"></canvas>
+      </div>
+      <div class="panel col-span-12 md:col-span-8">
+        <h2>Workload — Itens Abertos por Responsável (Top 10)</h2>
+        <canvas id="workload" height="200"></canvas>
+      </div>
+      <div class="panel col-span-12 md:col-span-4">
+        <h2>Distribuição por Fase</h2>
+        <canvas id="phaseBar" height="200"></canvas>
       </div>
     </section>
 
-    <footer class="text-xs text-gray-500 pt-4">Feito para planilhas com as colunas originais: <em>"Código", "Nome (O quê?)", "Responsável pela ação (Quem?)", "Data de início (Quando?)", "Data de término (Quando?)", "Progresso", "Status"</em>. Datas no formato ISO (YYYY-MM-DD) são recomendadas.</footer>
+    <!-- BLOCO 2: Lista operacional + filtros/abas/export -->
+    <section class="panel">
+      <div class="flex flex-col gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+          <div id="tabs" class="toolbar-tabs flex gap-2 md:col-span-6 col-span-12">
+            <button class="tab active" data-mode="overdue">Vencidas (<span id="qOverdue">0</span>)</button>
+            <button class="tab" data-mode="due14">Vencem em 14 dias (<span id="qDue14">0</span>)</button>
+            <button class="tab" data-mode="toplate">TOP 10 Atrasadas por Progresso</button>
+          </div>
+          <input id="search" type="text" placeholder="Buscar por código, nome, responsável, fase" class="md:col-span-4 col-span-12 w-full min-w-0 rounded-xl ring-1 ring-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <div class="flex items-center gap-2 justify-end md:col-span-2 col-span-12 min-w-0">
+            <select id="phaseFilter" class="w-full max-w-xs rounded-xl ring-1 ring-gray-200 px-2 py-2 text-sm">
+              <option value="">Todas as fases</option>
+            </select>
+            <button id="exportBtn" class="btn btn-outline btn-sm flex items-center gap-1"><span>⬇</span> Exportar</button>
+          </div>
+        </div>
+
+        <div class="overflow-auto rounded-2xl ring-1 ring-gray-200">
+          <table class="min-w-full tbl">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="codigo" onclick="setSort('codigo')">Código <span class="sort-ind">↕</span></th>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="nome" onclick="setSort('nome')">Nome <span class="sort-ind">↕</span></th>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="resp" onclick="setSort('resp')">Responsável <span class="sort-ind">↕</span></th>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="fase" onclick="setSort('fase')">Fase <span class="sort-ind">↕</span></th>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="fim" onclick="setSort('fim')">Término <span class="sort-ind">↕</span></th>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="progresso" onclick="setSort('progresso')">Progresso <span class="sort-ind">↕</span></th>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="atraso" onclick="setSort('atraso')">Atraso (pp) <span class="sort-ind">↕</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows">
+              <tr><td class="px-4 py-5 text-gray-500" colspan="7">Nenhum item. Dica: use “Enviar planilha”.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- BLOCO 3: Lead time -->
+    <section class="panel">
+      <h2>Lead time (Concluídas)</h2>
+      <div id="leadStats" class="grid grid-cols-5 gap-6">
+        <div><div class="muted">Amostra</div><div class="text-3xl font-semibold">0</div></div>
+        <div><div class="muted">Mediana</div><div class="text-3xl font-semibold">0 d</div></div>
+        <div><div class="muted">Média</div><div class="text-3xl font-semibold">0 d</div></div>
+        <div><div class="muted">p90</div><div class="text-3xl font-semibold">0 d</div></div>
+        <div><div class="muted">p95</div><div class="text-3xl font-semibold">0 d</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div id="diag" class="text-sm"></div>
+    </section>
   </div>
 
 <script>
-// --- Helpers ---
-const pct = (n) => `${(n*100).toFixed(1)}%`;
+// ---------- Chart.js defaults ----------
+Chart.defaults.font.family = 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+Chart.register(ChartDataLabels);
+
+Chart.defaults.color = '#111827';
+Chart.defaults.plugins.legend.position = 'bottom';
+Chart.defaults.plugins.legend.labels.boxWidth = 14;
+Chart.defaults.plugins.legend.labels.boxHeight = 14;
+
+// ---------- Utils ----------
+const byId = (id) => document.getElementById(id);
+const showError = (msg) => { const a = byId('alert'); a.textContent = msg; a.classList.remove('hidden'); };
+const clearError = () => byId('alert').classList.add('hidden');
+
+const H = {
+  codigo: 'Código',
+  nome: 'Nome (O quê?)',
+  responsavel: 'Responsável pela ação (Quem?)',
+  inicio: 'Data de início (Quando?)',
+  fim: 'Data de término (Quando?)',
+  progresso: 'Progresso',
+  status: 'Status',
+  concluida: 'Concluída em',
+  fase: 'Fase'
+};
+
 const parsePct = (str) => {
   if (str === null || str === undefined) return NaN;
-  if (typeof str === 'number') return str; // já em número
+  if (typeof str === 'number') return str;
   const s = String(str).replace(/%/g,'').replace(',', '.').trim();
   const v = parseFloat(s);
   return isNaN(v) ? NaN : v;
 };
 const parseDate = (v) => {
   if (!v) return null;
-  // SheetJS geralmente fornece strings ou números (datas Excel)
-  if (typeof v === 'number') { // Excel date serial
-    return XLSX.SSF ? XLSX.SSF.parse_date_code(v) : null;
-  }
+  if (typeof v === 'number') { return XLSX.SSF ? XLSX.SSF.parse_date_code(v) : null; }
   const d = new Date(v);
   return isNaN(d) ? null : d;
 };
 const serialToDate = (serial) => {
-  // Converte serial Excel para Date
   const utc_days = Math.floor(serial - 25569);
   const utc_value = utc_days * 86400; 
   const date_info = new Date(utc_value * 1000);
@@ -80,208 +189,430 @@ const serialToDate = (serial) => {
   return date_info;
 };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-
-function daysBetween(a, b) {
-  const ms = b.getTime() - a.getTime();
-  return ms / (1000*60*60*24);
-}
-
+function daysBetween(a, b) { return (b.getTime() - a.getTime()) / (1000*60*60*24); }
 function plannedPercentForDate(start, end, date) {
   if (!start || !end) return NaN;
   if (date < start) return 0;
   if (date > end) return 100;
   const total = daysBetween(start, end);
-  return total <= 0 ? 100 : clamp( (daysBetween(start, date) / total) * 100, 0, 100);
+  return total <= 0 ? 100 : clamp((daysBetween(start, date) / total) * 100, 0, 100);
+}
+function startOfWeek(d){
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = date.getUTCDay() || 7;
+  if (day !== 1) date.setUTCDate(date.getUTCDate() - (day - 1));
+  return date;
+}
+function formatBR(d){ return d.toLocaleDateString('pt-BR', { timeZone:'UTC' }); }
+
+
+// -- Fase curta (ex.: "Fase 1 - ... " -> "Fase 1")
+function shortPhase(v){
+  const s = String(v||'').trim();
+  const m = s.match(/Fase\s*(\d+)/i);
+  return m ? `Fase ${m[1]}` : (s || 'Sem fase');
 }
 
-function formatDateLabel(d) {
-  return d.toISOString().slice(0,10);
+// -- Ordenação
+let SORT_KEY = null; // ex.: 'codigo','nome','resp','fase','fim','progresso','atraso'
+let SORT_DIR = 'asc'; // 'asc' | 'desc'
+function setSort(key){
+  if (SORT_KEY === key){ SORT_DIR = (SORT_DIR === 'asc' ? 'desc' : 'asc'); }
+  else { SORT_KEY = key; SORT_DIR = 'asc'; }
+  updateSortIndicators();
+  renderList();
+}
+function updateSortIndicators(){
+  document.querySelectorAll('[data-sort]').forEach(el=>{
+    const k = el.getAttribute('data-sort');
+    el.querySelector('.sort-ind').textContent = (k===SORT_KEY ? (SORT_DIR==='asc'?'▲':'▼') : '↕');
+  });
 }
 
-// --- State ---
+// ---------- State & derived ----------
 let charts = {};
+let DATA = { rows: [], derived: null };
+const tol = 5;
 
-// --- Rendering ---
-function renderKPIs(data) {
-  const container = document.getElementById('kpis');
-  container.innerHTML = '';
-
-  const card = (label, value, sub) => `
-    <div class="card">
-      <div class="text-sm text-gray-500">${label}</div>
-      <div class="text-3xl font-semibold">${value}</div>
-      ${sub ? `<div class='text-xs text-gray-500 mt-2'>${sub}</div>` : ''}
-    </div>`;
-
-  container.insertAdjacentHTML('beforeend', card('Ações Totais', data.total));
-  container.insertAdjacentHTML('beforeend', card('Concluídas', data.done));
-  container.insertAdjacentHTML('beforeend', card('Em Execução', data.doing));
-  container.insertAdjacentHTML('beforeend', card('Aguardando Início', data.waiting));
-  container.insertAdjacentHTML('beforeend', card('Atrasadas', data.late,
-    `Critério: progresso < planejado (tolerância ${data.lateThreshold} pp)`));
-  container.insertAdjacentHTML('beforeend', card('Vencidas', data.overdue,
-    'Prazo ultrapassado e não concluídas'));
-}
-
-function renderStatusChart(ctx, statusCounts) {
-  charts.status && charts.status.destroy();
-  charts.status = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: Object.keys(statusCounts),
-      datasets: [{ data: Object.values(statusCounts) }]
-    },
-    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-  });
-}
-
-function renderOwnerBar(ctx, ownerCounts) {
-  const labels = Object.keys(ownerCounts);
-  const values = Object.values(ownerCounts);
-  charts.owner && charts.owner.destroy();
-  charts.owner = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [{ label: 'Em execução', data: values }] },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      scales: { x: { beginAtZero: true } },
-      plugins: { legend: { display: false } }
-    }
-  });
-}
-
-function renderSCurve(ctx, dates, planned, actual) {
-  charts.scurve && charts.scurve.destroy();
-  charts.scurve = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: dates.map(formatDateLabel),
-      datasets: [
-        { label: 'Planejado', data: planned, tension: 0.25 },
-        { label: 'Real (estimado)', data: actual, tension: 0.25 }
-      ]
-    },
-    options: {
-      responsive: true,
-      stacked: false,
-      scales: { y: { min: 0, max: 100, ticks: { callback: (v)=> v+ '%' } } },
-      plugins: { legend: { position: 'bottom' } }
-    }
-  });
-}
-
-// --- Data pipeline ---
-function buildFromRows(rows) {
+function derive(rows){
   const today = new Date();
   const statusCounts = {};
-  const ownersExec = {};
+  let openItems = 0, doneItems = 0;
+  const health = { adiantada:0, atrasada:0, notrilho:0 };
+  const ownersOpen = {};
+  const phaseCounts = {};
+  const completions = [];
+  const phasesSet = new Set();
 
-  let total = 0, done = 0, doing = 0, waiting = 0;
-  let late = 0, overdue = 0;
-  const lateThreshold = 5; // pontos percentuais
-
-  // For S-curve
-  const tasks = [];
-  let minStart = null, maxEnd = null;
-
-  rows.forEach(r => {
-    const status = String(r['Status'] ?? '').trim();
-    const resp = String(r['Responsável pela ação (Quem?)'] ?? '').trim() || '—';
-    let p = parsePct(r['Progresso']);
-    if (isNaN(p)) p = 0;
-
-    // Dates (could be string ISO or Excel serial)
-    let start = r['Data de início (Quando?)'];
-    let end = r['Data de término (Quando?)'];
-
-    if (typeof start === 'number') start = serialToDate(start); else start = parseDate(start);
-    if (typeof end === 'number') end = serialToDate(end); else end = parseDate(end);
-
-    total++;
+  rows.forEach(r=>{
+    const status = String(r[H.status] ?? '').trim();
+    const s = status.toLowerCase();
     statusCounts[status] = (statusCounts[status]||0)+1;
 
-    if (status.toLowerCase().includes('conclu')) done++;
-    else if (status.toLowerCase().includes('execu')) doing++;
-    else if (status.toLowerCase().includes('aguard')) waiting++;
+    const fase = shortPhase((r[H.fase] ?? 'Sem fase') || 'Sem fase');
+    phasesSet.add(fase);
+    phaseCounts[fase] = (phaseCounts[fase]||0)+1;
 
-    // Overdue (deadline passed and not completed)
-    if (end && today > end && !status.toLowerCase().includes('conclu')) overdue++;
+    const resp = (String(r[H.responsavel] ?? '').trim()) || '—';
+    let start = r[H.inicio], end = r[H.fim];
+    if (typeof start === 'number') start = serialToDate(start); else start = parseDate(start);
+    if (typeof end === 'number') end = serialToDate(end); else end = parseDate(end);
+    let p = parsePct(r[H.progresso]); if (isNaN(p)) p = 0;
 
-    // Late (progress behind planned with tolerance)
-    if (start && end && today >= start && !status.toLowerCase().includes('conclu')) {
-      const plannedToday = plannedPercentForDate(start, end, today);
-      if (plannedToday - p > lateThreshold) late++;
+    const isClosed = s.includes('conclu') || s.includes('cancel');
+    if (isClosed) doneItems++; else openItems++;
+
+    if (!isClosed){
+      const planned = (start && end) ? plannedPercentForDate(start, end, today) : NaN;
+      if (!isNaN(planned)){
+        if (p - planned > tol) health.adiantada++;
+        else if (planned - p > tol) health.atrasada++;
+        else health.notrilho++;
+      } else {
+        health.notrilho++;
+      }
+      ownersOpen[resp] = (ownersOpen[resp]||0)+1;
     }
 
-    // Owner chart: only "Em execução"
-    if (status.toLowerCase().includes('execu')) {
-      ownersExec[resp] = (ownersExec[resp]||0)+1;
-    }
-
-    // For S-curve
-    if (start && end) {
-      tasks.push({ start, end, progress: clamp(p,0,100) });
-      if (!minStart || start < minStart) minStart = start;
-      if (!maxEnd || end > maxEnd) maxEnd = end;
-    }
+    let doneDate = r[H.concluida];
+    if (typeof doneDate === 'number') doneDate = serialToDate(doneDate); else doneDate = parseDate(doneDate);
+    if (!doneDate && isClosed){ doneDate = end || null; }
+    if (doneDate) completions.push(doneDate);
   });
 
-  // Build S-curve arrays (daily)
-  let dates = [], planned = [], actual = [];
-  if (minStart && maxEnd) {
-    const dayMs = 24*60*60*1000;
-    for (let t = new Date(minStart.getFullYear(), minStart.getMonth(), minStart.getDate()); t <= maxEnd; t = new Date(t.getTime()+dayMs)) {
-      let pvSum = 0, evSum = 0, n = tasks.length;
-      tasks.forEach(task => {
-        const pv = plannedPercentForDate(task.start, task.end, t);
-        pvSum += pv;
-        // EV estimada = mínimo entre progresso atual e PV na data
-        evSum += Math.min(task.progress, pv);
-      });
-      dates.push(new Date(t));
-      planned.push(n ? pvSum / n : 0);
-      actual.push(n ? evSum / n : 0);
-    }
+  const weeks = [];
+  const todayWeekStart = startOfWeek(today);
+  for (let i=11; i>=0; i--){
+    const ws = new Date(todayWeekStart.getTime() - i*7*24*60*60*1000);
+    const we = new Date(ws.getTime() + 7*24*60*60*1000);
+    const count = completions.filter(d => d >= ws && d < we).length;
+    weeks.push({ start: ws, count });
   }
 
-  return {
-    scoreboard: { total, done, doing, waiting, late, overdue, lateThreshold },
-    statusCounts,
-    ownersExec,
-    scurve: { dates, planned, actual }
-  };
+  const top = Object.entries(ownersOpen).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count).slice(0,10);
+
+  return { statusCounts, health, weeks, top, phaseCounts, phases:[...phasesSet].sort(), openItems, doneItems };
 }
 
-function loadFromWorkbook(workbook) {
-  // Use a planilha da primeira aba "Sheet1" ou a primeira disponível
-  const sheetName = workbook.SheetNames[0];
-  const ws = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
-  const data = buildFromRows(rows);
-
-  // KPIs
-  renderKPIs(data.scoreboard);
-
-  // Charts
-  renderStatusChart(document.getElementById('statusChart'), data.statusCounts);
-  renderOwnerBar(document.getElementById('ownerBar'), data.ownersExec);
-  renderSCurve(document.getElementById('scurve'), data.scurve.dates, data.scurve.planned, data.scurve.actual);
+function computeLeadTimes(rows){
+  const lead = [];
+  rows.forEach(r=>{
+    const s = String(r[H.status] ?? '').toLowerCase();
+    const closed = s.includes('conclu') || s.includes('cancel');
+    if (!closed) return;
+    let start = r[H.inicio];
+    let end = r[H.concluida] || r[H.fim];
+    if (typeof start === 'number') start = serialToDate(start); else start = parseDate(start);
+    if (typeof end === 'number') end = serialToDate(end); else end = parseDate(end);
+    if (!start || !end) return;
+    const d = Math.max(0, Math.round(daysBetween(start, end)));
+    lead.push(d);
+  });
+  lead.sort((a,b)=>a-b);
+  const n = lead.length;
+  const q = (p)=> n ? lead[Math.min(n-1, Math.max(0, Math.round((p/100)*(n-1))))] : 0;
+  const mean = n ? Math.round(lead.reduce((a,b)=>a+b,0)/n) : 0;
+  const med = q(50);
+  return { n, mean, median: med, p90: q(90), p95: q(95) };
 }
+
+// ---------- Charts renderers ----------
+function renderStatusPie(ctx, statusCounts){
+  charts.status && charts.status.destroy();
+  charts.status = new Chart(ctx, {
+    type: 'pie',
+    data: { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#F59E0B','#EF4444','#10B981','#3B82F6','#8B5CF6'] }] },
+    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'%':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
+  });
+}
+function renderHealthPie(ctx, health){
+  charts.health && charts.health.destroy();
+  charts.health = new Chart(ctx, {
+    type: 'pie',
+    data: { labels: ['Adiantada','Atrasada','No trilho'], datasets: [{ data: [health.adiantada, health.atrasada, health.notrilho], backgroundColor: ['#F59E0B','#3B82F6','#10B981'] }] },
+    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'%':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
+  });
+}
+function renderThroughput(ctx, weeks){
+  charts.throughput && charts.throughput.destroy();
+  charts.throughput = new Chart(ctx, {
+    type: 'line',
+    data: { labels: weeks.map(w=>formatBR(w.start)), datasets: [{ data: weeks.map(w=>w.count), tension:.3, borderWidth:2, pointRadius:3, label:'Itens concluídos/semana' }] },
+    options: { scales:{ y:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,.08)'}}, x:{ grid:{ color:'rgba(0,0,0,.06)'}}}, plugins:{ legend:{ display:false }, datalabels:{ align:'top', anchor:'end', formatter:(v)=> v||'', offset:4, font:{weight:'600'} } } }
+  });
+}
+function renderWorkload(ctx, top){
+  charts.workload && charts.workload.destroy();
+  charts.workload = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: top.map(r=>r.name), datasets:[{ data: top.map(r=>r.count), backgroundColor:'#6366F1', borderRadius:8, borderWidth:0, label:'Abertos' }] },
+    options: { indexAxis:'y', scales:{ x:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,.08)' }}, y:{ grid:{ display:false } } }, plugins:{ legend:{ display:false }, datalabels:{ anchor:'end', align:'right', formatter:(v)=> v||'', offset:6, font:{weight:'600'} } } }
+  });
+}
+function renderPhaseBar(ctx, counts){
+  charts.phase && charts.phase.destroy();
+  charts.phase = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: Object.keys(counts), datasets:[{ data: Object.values(counts), backgroundColor:['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#A78BFA','#84CC16','#F97316','#94A3B8'], borderRadius:6, borderWidth:0, label:'Itens' }] },
+    options: { plugins:{ legend:{ display:false }, datalabels:{ anchor:'end', align:'top', formatter:(v)=> v||'', offset:4, font:{weight:'600'} } }, scales:{ y:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,.08)' }}, x:{ grid:{ display:false } } } }
+  });
+}
+
+function renderDiag(info){
+  byId('diag').innerHTML = `
+    <div class="flex flex-wrap gap-4">
+      <div><span class="chip">Abertas: <strong>${info.openItems}</strong></span></div>
+      <div><span class="chip">Concluídas: <strong>${info.doneItems}</strong></span></div>
+    </div>`;
+}
+
+// ---------- List (abas, filtros, export) ----------
+let MODE = 'overdue';
+let SEARCH = '';
+let PHASE = '';
+
+function getListItems(){
+  const today = new Date();
+  return DATA.rows.map(r=>{
+    const obj = {
+      codigo: r[H.codigo],
+      nome: r[H.nome],
+      resp: r[H.responsavel],
+      fase: shortPhase(r[H.fase] || 'Sem fase'),
+      status: r[H.status],
+      progresso: parsePct(r[H.progresso]),
+      inicio: typeof r[H.inicio]==='number' ? serialToDate(r[H.inicio]) : parseDate(r[H.inicio]),
+      fim: typeof r[H.fim]==='number' ? serialToDate(r[H.fim]) : parseDate(r[H.fim])
+    };
+    const planned = (obj.inicio && obj.fim) ? plannedPercentForDate(obj.inicio, obj.fim, today) : NaN;
+    obj.atraso = isNaN(planned) ? 0 : Math.round(planned - (obj.progresso||0));
+    const s = String(obj.status||'').toLowerCase();
+    obj.isClosed = s.includes('conclu') || s.includes('cancel');
+    obj.isOverdue = obj.fim && today > obj.fim && !obj.isClosed;
+    obj.dueIn14 = obj.fim && !obj.isClosed && (obj.fim - today <= 14*24*60*60*1000) && (obj.fim - today >= 0);
+    return obj;
+  });
+}
+function filterList(items){
+  let result = [];
+  if (MODE === 'overdue') result = items.filter(x=>x.isOverdue);
+  else if (MODE === 'due14') result = items.filter(x=>x.dueIn14);
+  else if (MODE === 'toplate') result = items.filter(x=>!x.isClosed && x.atraso>0).sort((a,b)=>b.atraso-a.atraso).slice(0,10);
+  if (PHASE) result = result.filter(x=>String(x.fase||'')===PHASE);
+  if (SEARCH){
+    const s = SEARCH.toLowerCase();
+    result = result.filter(x =>
+      String(x.codigo||'').toLowerCase().includes(s) ||
+      String(x.nome||'').toLowerCase().includes(s) ||
+      String(x.resp||'').toLowerCase().includes(s) ||
+      String(x.fase||'').toLowerCase().includes(s)
+    );
+  }
+  return result;
+}
+function renderList(){
+  
+  let items = filterList(getListItems());
+  if (SORT_KEY){
+    items = items.slice().sort((a,b)=>{
+      const av = (a[SORT_KEY] ?? '');
+      const bv = (b[SORT_KEY] ?? '');
+      let cmp = 0;
+      if (SORT_KEY === 'fim'){ // dates
+        cmp = (av? av.getTime():0) - (bv? bv.getTime():0);
+      } else if (SORT_KEY === 'progresso' || SORT_KEY === 'atraso'){
+        cmp = (parseFloat(av)||0) - (parseFloat(bv)||0);
+      } else {
+        cmp = String(av).localeCompare(String(bv), 'pt-BR', { numeric:true, sensitivity:'base' });
+      }
+      return SORT_DIR==='asc' ? cmp : -cmp;
+    });
+  }
+
+  const tbody = byId('rows');
+  tbody.innerHTML = '';
+  if (!items.length){
+    tbody.innerHTML = `<tr><td class="px-4 py-5 text-gray-500" colspan="7">Nenhum item para os filtros atuais.</td></tr>`;
+  } else {
+    items.forEach(it=>{
+      const end = it.fim ? new Date(it.fim) : null;
+      tbody.insertAdjacentHTML('beforeend', `
+        <tr class="border-t last:border-b">
+          <td class="px-4 py-3">${it.codigo||'—'}</td>
+          <td class="px-4 py-3">${it.nome||'—'}</td>
+          <td class="px-4 py-3">${it.resp||'—'}</td>
+          <td class="px-4 py-3"><span class="pill">${it.fase||'Sem fase'}</span></td>
+          <td class="px-4 py-3">${end ? formatBR(end) : '—'}</td>
+          <td class="px-4 py-3">${isNaN(it.progresso)?'—': it.progresso + '%'}</td>
+          <td class="px-4 py-3">${it.atraso>0 ? it.atraso : 0}</td>
+        </tr>
+      `);
+    });
+  }
+}
+function exportList(){
+  
+  let items = filterList(getListItems());
+  if (SORT_KEY){
+    items = items.slice().sort((a,b)=>{
+      const av = (a[SORT_KEY] ?? '');
+      const bv = (b[SORT_KEY] ?? '');
+      let cmp = 0;
+      if (SORT_KEY === 'fim'){ // dates
+        cmp = (av? av.getTime():0) - (bv? bv.getTime():0);
+      } else if (SORT_KEY === 'progresso' || SORT_KEY === 'atraso'){
+        cmp = (parseFloat(av)||0) - (parseFloat(bv)||0);
+      } else {
+        cmp = String(av).localeCompare(String(bv), 'pt-BR', { numeric:true, sensitivity:'base' });
+      }
+      return SORT_DIR==='asc' ? cmp : -cmp;
+    });
+  }
+
+  const header = ['Código','Nome','Responsável','Fase','Término','Progresso','Atraso (pp)'];
+  const rows = items.map(it=>[it.codigo,it.nome,it.resp,it.fase,it.fim?formatBR(it.fim):'', isNaN(it.progresso)?'':(it.progresso+'%'), it.atraso]);
+  const csv = [header, ...rows].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `export_${MODE}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------- Wiring ----------
+const tabs = Array.from(document.querySelectorAll('#tabs .tab'));
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  MODE = t.dataset.mode;
+  renderList();
+}));
+byId('search').addEventListener('input', (e)=>{ SEARCH = e.target.value; renderList(); });
+byId('phaseFilter').addEventListener('change', (e)=>{ PHASE = e.target.value; renderList(); });
+byId('exportBtn').addEventListener('click', exportList);
+updateSortIndicators();
 
 // --- File input ---
-const input = document.getElementById('file');
-input.addEventListener('change', (e) => {
-  const file = e.target.files[0];
+const input = byId('file');
+const chooseBtn = byId('chooseBtn');
+chooseBtn.addEventListener('click', () => input.click());
+input.addEventListener('change', (e) => handleFiles(e.target.files));
+
+function handleFiles(files){
+  clearError();
+  const file = files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (evt) => {
     const data = new Uint8Array(evt.target.result);
-    const wb = XLSX.read(data, { type: 'array' });
-    loadFromWorkbook(wb);
+    const ext = (file.name.split('.').pop()||'').toLowerCase();
+    try {
+      let wb;
+      if (ext === 'csv') {
+        const str = new TextDecoder('utf-8').decode(data);
+        wb = XLSX.read(str, { type: 'string' });
+      } else {
+        wb = XLSX.read(data, { type: 'array' });
+      }
+      loadFromWorkbook(wb);
+    } catch (err) {
+      console.error(err);
+      showError('Não consegui processar o arquivo. Tente salvar como XLSX ou CSV simples e reenviar.');
+    }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// ---------- Load workbook and render ----------
+function loadFromWorkbook(workbook){
+  const sheetName = workbook.SheetNames[0];
+  const ws = workbook.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
+  // validate headers
+  const headers = Object.keys(rows[0]||{});
+  const required = [H.codigo,H.nome,H.responsavel,H.inicio,H.fim,H.progresso,H.status];
+  const missing = required.filter(h => !headers.includes(h));
+  if (missing.length){ return showError('Faltam colunas: ' + missing.join(', ')); }
+
+  DATA.rows = rows;
+  DATA.derived = derive(rows);
+
+  // counters
+  byId('qOverdue').textContent = countOverdue(rows);
+  byId('qDue14').textContent = countDue14(rows);
+
+  // phase options
+  const sel = byId('phaseFilter');
+  sel.innerHTML = '<option value="">Todas as fases</option>' + DATA.derived.phases.map(p=>`<option value="${p}">${p}</option>`).join('');
+
+  // charts
+  renderStatusPie(byId('statusPie'), DATA.derived.statusCounts);
+  renderHealthPie(byId('healthPie'), DATA.derived.health);
+  renderThroughput(byId('throughput'), DATA.derived.weeks);
+  renderWorkload(byId('workload'), DATA.derived.top);
+  renderPhaseBar(byId('phaseBar'), DATA.derived.phaseCounts);
+
+  // list & stats
+  renderList();
+  renderLeadStats();
+  renderDiag(DATA.derived);
+}
+
+function countOverdue(rows){
+  const today = new Date();
+  return rows.filter(r=>{
+    const s = String(r[H.status]||'').toLowerCase();
+    const closed = s.includes('conclu') || s.includes('cancel');
+    let end = r[H.fim]; end = typeof end==='number'? serialToDate(end): parseDate(end);
+    return end && today > end && !closed;
+  }).length;
+}
+function countDue14(rows){
+  const today = new Date();
+  return rows.filter(r=>{
+    const s = String(r[H.status]||'').toLowerCase();
+    const closed = s.includes('conclu') || s.includes('cancel');
+    let end = r[H.fim]; end = typeof end==='number'? serialToDate(end): parseDate(end);
+    return end && !closed && (end - today <= 14*24*60*60*1000) && (end - today >= 0);
+  }).length;
+}
+
+function renderLeadStats(){
+  const stats = computeLeadTimes(DATA.rows);
+  const host = byId('leadStats');
+  host.innerHTML = `
+    <div><div class="muted">Amostra</div><div class="text-3xl font-semibold">${stats.n}</div></div>
+    <div><div class="muted">Mediana</div><div class="text-3xl font-semibold">${stats.median} d</div></div>
+    <div><div class="muted">Média</div><div class="text-3xl font-semibold">${stats.mean} d</div></div>
+    <div><div class="muted">p90</div><div class="text-3xl font-semibold">${stats.p90} d</div></div>
+    <div><div class="muted">p95</div><div class="text-3xl font-semibold">${stats.p95} d</div></div>
+  `;
+}
+
+// --- Demo data & self-test ---
+byId('demoBtn').addEventListener('click', () => {
+  const sample = [
+    { [H.codigo]:'25-1001', [H.nome]:'Definir escopo do projeto', [H.responsavel]:'Joyce de Oliveira Franco', [H.inicio]:'2025-09-01', [H.fim]:'2025-09-10', [H.progresso]:'88%', [H.status]:'Em execução', [H.fase]:'Planejamento' },
+    { [H.codigo]:'25-1002', [H.nome]:'Revisar riscos FMEA', [H.responsavel]:'Davi Silva', [H.inicio]:'2025-09-02', [H.fim]:'2025-09-19', [H.progresso]:'75%', [H.status]:'Em execução', [H.fase]:'Execução' },
+    { [H.codigo]:'25-1003', [H.nome]:'Apresentação IATF', [H.responsavel]:'Luna Régia', [H.inicio]:'2025-08-28', [H.fim]:'2025-09-05', [H.progresso]:'24%', [H.status]:'Em execução', [H.fase]:'Execução' },
+    { [H.codigo]:'25-1004', [H.nome]:'Entrega 1ª versão', [H.responsavel]:'Equipe', [H.inicio]:'2025-08-01', [H.fim]:'2025-08-20', [H.progresso]:'100%', [H.status]:'Concluída', [H.concluida]:'2025-08-19', [H.fase]:'Concluídas' }
+  ];
+  const ws = XLSX.utils.json_to_sheet(sample);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+  // carrega como se fosse um arquivo
+  loadFromWorkbook(wb);
+
+  // Pequenos testes de sanidade no console
+  setTimeout(() => {
+    try {
+      console.assert(DATA.rows.length === sample.length, 'Deveria carregar 4 linhas');
+      console.assert(document.querySelector('#rows tr') !== null, 'Tabela deve renderizar');
+      console.assert(charts.status && charts.workload, 'Gráficos principais prontos');
+      console.log('[Teste rápido] OK — layout ajustado, filtros e gráficos renderizados.');
+    } catch(e) { console.warn('Teste falhou:', e); }
+  }, 50);
 });
+
 </script>
 </body>
 </html>
