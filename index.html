@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard – Modelo Forlogic (Painéis + Lista & Lead Time)</title>
+  <title>Escritório de Projetos</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -38,7 +38,8 @@
     .btn-primary:hover { background:#1d4ed8; }
     .btn-outline { background:white; border:1px solid #e5e7eb; }
     .tbl th { text-align:left; color:#4b5563; font-weight:600; }
-    .tbl td { color:#111827; }
+    .tbl td { color:#111827; font-size:13px; }
+.tbl th { font-size:13px; }
     .tbl tr:hover { background:#f9fafb; }
     .pill { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; background:#f3f4f6; color:#374151; }
   </style>
@@ -46,16 +47,24 @@
 <body class="gap-bg min-h-screen text-gray-900">
   <div class="max-w-7xl mx-auto p-5 space-y-4">
     <header class="flex flex-col md:flex-row md:items-center md:justify-between mb-2 gap-3">
-      <h1 class="text-white text-2xl md:text-3xl font-bold">📊 Painéis de Projeto – Modelo Forlogic</h1>
+      <h1 class="text-white text-2xl md:text-3xl font-bold">📊 Escritório de Projetos</h1>
       <div class="flex items-center gap-3">
         <input id="file" type="file" accept=".xlsx,.xls,.csv" class="hidden"/>
         <button id="chooseBtn" class="btn btn-primary">Enviar planilha</button>
         <button id="demoBtn" class="btn btn-outline">Usar dados de demonstração</button>
-        <span class="chip">Padrão: “Código”, “Nome (O quê?)”, “Responsável pela ação (Quem?)”, “Data de início (Quando?)”, “Data de término (Quando?)”, “Progresso”, “Status”. Extras: “Concluída em”, “Fase”.</span>
+        <span class="chip">Padrão: “Código”, “Nome”, “Responsável pela ação (Quem?)”, “Data de início”, “Data de término”, “Duração (planejado)”, “Trabalho executado/realizado”, “Status”. Extras: “Concluída em”, “Fase”.</span>
       </div>
     </header>
 
     <div id="alert" class="hidden p-3 rounded-lg bg-red-50 text-red-700 text-sm mb-3"></div>
+    <!-- SCOREBOARD -->
+    <section id="scoreboard" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+      <div class="card text-center"><div class="muted">Em execução</div><div id="scExec" class="text-3xl font-semibold">0</div></div>
+      <div class="card text-center"><div class="muted">Vencidas</div><div id="scVencidas" class="text-3xl font-semibold">0</div></div>
+      <div class="card text-center"><div class="muted">Concluídas no mês</div><div id="scConcluidasMes" class="text-3xl font-semibold">0</div></div>
+      <div class="card text-center"><div class="muted">Progresso do projeto</div><div id="scProg" class="text-3xl font-semibold">0%</div></div>
+    </section>
+
 
     <!-- BLOCO 1: 5 gráficos executivos -->
     <section class="grid-panels">
@@ -78,6 +87,14 @@
       <div class="panel col-span-12 md:col-span-4">
         <h2>Distribuição por Fase</h2>
         <canvas id="phaseBar" height="200"></canvas>
+      </div>
+      <div class="panel col-span-12 md:col-span-6">
+        <h2>Ações Vencidas por Fase</h2>
+        <div class="donut-wrap"><canvas id="overduePhasePie" height="140"></canvas></div>
+      </div>
+      <div class="panel col-span-12 md:col-span-6">
+        <h2>Ações Concluídas por Fase</h2>
+        <div class="donut-wrap"><canvas id="donePhasePie" height="140"></canvas></div>
       </div>
     </section>
 
@@ -107,13 +124,14 @@
                 <th class="px-4 py-3 cursor-pointer select-none" data-sort="nome" onclick="setSort('nome')">Nome <span class="sort-ind">↕</span></th>
                 <th class="px-4 py-3 cursor-pointer select-none" data-sort="resp" onclick="setSort('resp')">Responsável <span class="sort-ind">↕</span></th>
                 <th class="px-4 py-3 cursor-pointer select-none" data-sort="fase" onclick="setSort('fase')">Fase <span class="sort-ind">↕</span></th>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="status" onclick="setSort('status')">Status <span class="sort-ind">↕</span></th>
                 <th class="px-4 py-3 cursor-pointer select-none" data-sort="fim" onclick="setSort('fim')">Término <span class="sort-ind">↕</span></th>
                 <th class="px-4 py-3 cursor-pointer select-none" data-sort="progresso" onclick="setSort('progresso')">Progresso <span class="sort-ind">↕</span></th>
                 <th class="px-4 py-3 cursor-pointer select-none" data-sort="atraso" onclick="setSort('atraso')">Atraso (pp) <span class="sort-ind">↕</span></th>
               </tr>
             </thead>
             <tbody id="rows">
-              <tr><td class="px-4 py-5 text-gray-500" colspan="7">Nenhum item. Dica: use “Enviar planilha”.</td></tr>
+              <tr><td class="px-4 py-5 text-gray-500" colspan="8">Nenhum item. Dica: use “Enviar planilha”.</td></tr>
             </tbody>
           </table>
         </div>
@@ -153,11 +171,12 @@ const showError = (msg) => { const a = byId('alert'); a.textContent = msg; a.cla
 const clearError = () => byId('alert').classList.add('hidden');
 
 const H = {
+  executado: 'Trabalho executado',
   codigo: 'Código',
-  nome: 'Nome (O quê?)',
+  nome: 'Nome',
   responsavel: 'Responsável pela ação (Quem?)',
-  inicio: 'Data de início (Quando?)',
-  fim: 'Data de término (Quando?)',
+  inicio: 'Data de início',
+  fim: 'Data de término',
   progresso: 'Progresso',
   status: 'Status',
   concluida: 'Concluída em',
@@ -227,6 +246,50 @@ function updateSortIndicators(){
     const k = el.getAttribute('data-sort');
     el.querySelector('.sort-ind').textContent = (k===SORT_KEY ? (SORT_DIR==='asc'?'▲':'▼') : '↕');
   });
+}
+
+
+
+
+function renderScoreboard(rows){
+  const today = new Date();
+  let exec=0, vencidas=0, conclMes=0;
+  let totalExec = 0, totalPlan = 0;
+  rows.forEach(r=>{
+    const status = String(r[H.status]||'').toLowerCase();
+    const isClosed = status.includes('conclu') || status.includes('cancel');
+    const isExec = status.includes('exec');
+    let end = r[H.fim]; end = typeof end==='number'? serialToDate(end): parseDate(end);
+    let concl = r[H.concluida]; concl = typeof concl==='number'? serialToDate(concl): parseDate(concl);
+
+    // planned work (PV)
+    const dur = parseFloat(H.duracao ? r[H.duracao] : r['Duração']) || 0;
+    if (dur > 0) totalPlan += dur;
+
+    // executed work (EV) can be percent or absolute
+    const raw = r[H.executado];
+    let executed = 0;
+    if (raw !== undefined && raw !== null){
+      const s = String(raw).trim();
+      if (s.includes('%')){ // percent value
+        const pct = parsePct(s); 
+        if (!isNaN(pct) && dur>0) executed = (pct/100) * dur;
+      } else {
+        const val = parseFloat(s.replace(',','.'));
+        if (!isNaN(val)) executed = val; // absolute units (same unit as Duração)
+      }
+    }
+    if (dur > 0) totalExec += Math.min(executed, dur); // cap to planned
+    if (isExec) exec++;
+    if (!isClosed && end && today>end){ vencidas++; }
+    if (concl && concl.getMonth()===today.getMonth() && concl.getFullYear()===today.getFullYear()) conclMes++;
+  });
+  const prog = totalPlan>0 ? Math.round((totalExec/totalPlan)*100) : 0;
+
+  byId('scExec').textContent = exec;
+  byId('scVencidas').textContent = vencidas;
+  byId('scConcluidasMes').textContent = conclMes;
+  byId('scProg').textContent = prog + '%';
 }
 
 // ---------- State & derived ----------
@@ -317,12 +380,30 @@ function computeLeadTimes(rows){
 }
 
 // ---------- Charts renderers ----------
+
+function renderOverdueDonePhasePies(overdueCounts, doneCounts){
+  // Overdue by Phase
+  charts.overduePhase && charts.overduePhase.destroy();
+  charts.overduePhase = new Chart(byId('overduePhasePie'), {
+    type: 'pie',
+    data: { labels: Object.keys(overdueCounts), datasets: [{ data: Object.values(overdueCounts), backgroundColor: ['#EF4444','#F59E0B','#3B82F6','#10B981','#8B5CF6','#06B6D4','#A78BFA','#84CC16','#F97316','#94A3B8'] }] },
+    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'% ('+v+')':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
+  });
+  // Done by Phase
+  charts.donePhase && charts.donePhase.destroy();
+  charts.donePhase = new Chart(byId('donePhasePie'), {
+    type: 'pie',
+    data: { labels: Object.keys(doneCounts), datasets: [{ data: Object.values(doneCounts), backgroundColor: ['#10B981','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#A78BFA','#84CC16','#F97316','#94A3B8'] }] },
+    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'% ('+v+')':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
+  });
+}
+
 function renderStatusPie(ctx, statusCounts){
   charts.status && charts.status.destroy();
   charts.status = new Chart(ctx, {
     type: 'pie',
     data: { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#F59E0B','#EF4444','#10B981','#3B82F6','#8B5CF6'] }] },
-    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'%':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
+    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'% ('+v+')':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
   });
 }
 function renderHealthPie(ctx, health){
@@ -330,7 +411,7 @@ function renderHealthPie(ctx, health){
   charts.health = new Chart(ctx, {
     type: 'pie',
     data: { labels: ['Adiantada','Atrasada','No trilho'], datasets: [{ data: [health.adiantada, health.atrasada, health.notrilho], backgroundColor: ['#F59E0B','#3B82F6','#10B981'] }] },
-    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'%':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
+    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'% ('+v+')':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
   });
 }
 function renderThroughput(ctx, weeks){
@@ -432,7 +513,7 @@ function renderList(){
   const tbody = byId('rows');
   tbody.innerHTML = '';
   if (!items.length){
-    tbody.innerHTML = `<tr><td class="px-4 py-5 text-gray-500" colspan="7">Nenhum item para os filtros atuais.</td></tr>`;
+    tbody.innerHTML = `<tr><td class="px-4 py-5 text-gray-500" colspan="8">Nenhum item para os filtros atuais.</td></tr>`;
   } else {
     items.forEach(it=>{
       const end = it.fim ? new Date(it.fim) : null;
@@ -442,6 +523,7 @@ function renderList(){
           <td class="px-4 py-3">${it.nome||'—'}</td>
           <td class="px-4 py-3">${it.resp||'—'}</td>
           <td class="px-4 py-3"><span class="pill">${it.fase||'Sem fase'}</span></td>
+          <td class="px-4 py-3"><span class="pill">${it.status||'—'}</span></td>
           <td class="px-4 py-3">${end ? formatBR(end) : '—'}</td>
           <td class="px-4 py-3">${isNaN(it.progresso)?'—': it.progresso + '%'}</td>
           <td class="px-4 py-3">${it.atraso>0 ? it.atraso : 0}</td>
@@ -469,8 +551,8 @@ function exportList(){
     });
   }
 
-  const header = ['Código','Nome','Responsável','Fase','Término','Progresso','Atraso (pp)'];
-  const rows = items.map(it=>[it.codigo,it.nome,it.resp,it.fase,it.fim?formatBR(it.fim):'', isNaN(it.progresso)?'':(it.progresso+'%'), it.atraso]);
+  const header = ['Código','Nome','Responsável','Fase','Status','Término','Progresso','Atraso (pp)'];
+  const rows = items.map(it=>[it.codigo,it.nome,it.resp,it.fase,it.status||'', it.fim?formatBR(it.fim):'', isNaN(it.progresso)?'':(it.progresso+'%'), it.atraso]);
   const csv = [header, ...rows].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -516,7 +598,7 @@ function handleFiles(files){
       loadFromWorkbook(wb);
     } catch (err) {
       console.error(err);
-      showError('Não consegui processar o arquivo. Tente salvar como XLSX ou CSV simples e reenviar.');
+      showError('Não consegui processar o arquivo (formato/estrutura). Confirme as colunas obrigatórias e tente salvar como XLSX/CSV simples.');
     }
   };
   reader.readAsArrayBuffer(file);
@@ -529,9 +611,31 @@ function loadFromWorkbook(workbook){
   const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
   // validate headers
   const headers = Object.keys(rows[0]||{});
-  const required = [H.codigo,H.nome,H.responsavel,H.inicio,H.fim,H.progresso,H.status];
+
+  // --- header alias normalization (accepts old labels) ---
+  function resolveHeader(headers, aliases){
+    for (const a of aliases){ if (headers.includes(a)) return a; }
+    return null;
+  }
+  const map = {
+    codigo: resolveHeader(headers, [H.codigo, 'Código']),
+    nome: resolveHeader(headers, [H.nome, 'Nome', 'Nome (O quê?)']),
+    responsavel: resolveHeader(headers, [H.responsavel, 'Responsável', 'Responsável pela ação (Quem?)']),
+    inicio: resolveHeader(headers, [H.inicio, 'Data de início', 'Data de início (Quando?)']),
+    fim: resolveHeader(headers, [H.fim, 'Data de término', 'Data de término (Quando?)']),
+    duracao: resolveHeader(headers, ['Duração', 'Duracao', 'Duração (dias)', 'Duração planejada', 'Trabalho planejado']),
+    executado: resolveHeader(headers, [H.executado, 'Trabalho executado', 'Trabalho realizado', 'Percentual de trabalho executado', 'EV', 'Trabalho realizado (dias)', 'Horas executadas']),
+    status: resolveHeader(headers, [H.status, 'Status']),
+    concluida: resolveHeader(headers, [H.concluida, 'Concluída em', 'Data de conclusão']),
+    fase: resolveHeader(headers, [H.fase, 'Fase'])
+  };
+  // update H with the resolved real header names
+  Object.keys(map).forEach(k => { if (map[k]) H[k] = map[k]; });
+  if (map.duracao) H.duracao = map.duracao;
+  const required = [H.codigo,H.nome,H.responsavel,H.inicio,H.fim,(H.duracao||'Duração'),H.executado,H.status];
   const missing = required.filter(h => !headers.includes(h));
   if (missing.length){ return showError('Faltam colunas: ' + missing.join(', ')); }
+
 
   DATA.rows = rows;
   DATA.derived = derive(rows);
@@ -551,10 +655,26 @@ function loadFromWorkbook(workbook){
   renderWorkload(byId('workload'), DATA.derived.top);
   renderPhaseBar(byId('phaseBar'), DATA.derived.phaseCounts);
 
+  // new pies: overdue and done by phase
+  const today = new Date();
+  const overdueCounts = {};
+  const doneCounts = {};
+  rows.forEach(r=>{
+    const phase = shortPhase(r[H.fase] || 'Sem fase');
+    const status = String(r[H.status]||'').toLowerCase();
+    const isClosed = status.includes('conclu') || status.includes('cancel');
+    let end = r[H.fim]; end = typeof end==='number'? serialToDate(end): parseDate(end);
+    if (!isClosed && end && today > end){ overdueCounts[phase] = (overdueCounts[phase]||0) + 1; }
+    if (isClosed){ doneCounts[phase] = (doneCounts[phase]||0) + 1; }
+  });
+  renderOverdueDonePhasePies(overdueCounts, doneCounts);
+
   // list & stats
   renderList();
   renderLeadStats();
   renderDiag(DATA.derived);
+  renderScoreboard(rows);
+
 }
 
 function countOverdue(rows){
@@ -591,10 +711,10 @@ function renderLeadStats(){
 // --- Demo data & self-test ---
 byId('demoBtn').addEventListener('click', () => {
   const sample = [
-    { [H.codigo]:'25-1001', [H.nome]:'Definir escopo do projeto', [H.responsavel]:'Joyce de Oliveira Franco', [H.inicio]:'2025-09-01', [H.fim]:'2025-09-10', [H.progresso]:'88%', [H.status]:'Em execução', [H.fase]:'Planejamento' },
-    { [H.codigo]:'25-1002', [H.nome]:'Revisar riscos FMEA', [H.responsavel]:'Davi Silva', [H.inicio]:'2025-09-02', [H.fim]:'2025-09-19', [H.progresso]:'75%', [H.status]:'Em execução', [H.fase]:'Execução' },
-    { [H.codigo]:'25-1003', [H.nome]:'Apresentação IATF', [H.responsavel]:'Luna Régia', [H.inicio]:'2025-08-28', [H.fim]:'2025-09-05', [H.progresso]:'24%', [H.status]:'Em execução', [H.fase]:'Execução' },
-    { [H.codigo]:'25-1004', [H.nome]:'Entrega 1ª versão', [H.responsavel]:'Equipe', [H.inicio]:'2025-08-01', [H.fim]:'2025-08-20', [H.progresso]:'100%', [H.status]:'Concluída', [H.concluida]:'2025-08-19', [H.fase]:'Concluídas' }
+    { [H.codigo]:'25-1001', [H.nome]:'Definir escopo do projeto', [H.responsavel]:'Joyce de Oliveira Franco', [H.inicio]:'2025-09-01', [H.fim]:'2025-09-10', [H.executado]:'80%', [H.progresso]:'88%', [H.status]:'Em execução', [H.fase]:'Planejamento', 'Duração': 10 },
+    { [H.codigo]:'25-1002', [H.nome]:'Revisar riscos FMEA', [H.responsavel]:'Davi Silva', [H.inicio]:'2025-09-02', [H.fim]:'2025-09-19', [H.executado]:'60%', [H.progresso]:'75%', [H.status]:'Em execução', [H.fase]:'Execução', 'Duração': 18 },
+    { [H.codigo]:'25-1003', [H.nome]:'Apresentação IATF', [H.responsavel]:'Luna Régia', [H.inicio]:'2025-08-28', [H.fim]:'2025-09-05', [H.executado]:'20%', [H.progresso]:'24%', [H.status]:'Em execução', [H.fase]:'Execução', 'Duração': 9 },
+    { [H.codigo]:'25-1004', [H.nome]:'Entrega 1ª versão', [H.responsavel]:'Equipe', [H.inicio]:'2025-08-01', [H.fim]:'2025-08-20', [H.executado]:'100%', [H.progresso]:'100%', [H.status]:'Concluída', [H.concluida]:'2025-08-19', [H.fase]:'Concluídas', 'Duração': 20 }
   ];
   const ws = XLSX.utils.json_to_sheet(sample);
   const wb = XLSX.utils.book_new();
