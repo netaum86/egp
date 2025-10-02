@@ -28,7 +28,7 @@
     .muted { color: #6B7280; font-size: 12px; }
     .gap-bg { background: #1f2937; }
     .chip { display:inline-block; padding:4px 10px; border-radius:999px; background:#f3f4f6; font-size:12px; color:#374151; }
-    .donut-wrap { max-width: 280px; margin: 0 auto; }
+    .donut-wrap { max-width: 100%; margin: 0; }
     .tab { display:flex; align-items:center; justify-content:center; padding:6px 10px; border-radius:10px; background:white; color:#374151; font-weight:600; font-size:13px; white-space:nowrap; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
     .tab.active { background:#2563eb; color:white; }
     .btn { padding:6px 12px; border-radius:10px; font-weight:600; font-size:14px; }
@@ -42,10 +42,21 @@
 .tbl th { font-size:13px; }
     .tbl tr:hover { background:#f9fafb; }
     .pill { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; background:#f3f4f6; color:#374151; }
-  </style>
+  
+    .row-overdue { background:#FEF2F2; } /* light red for overdue rows */
+    .cell-badge { display:inline-block; padding:2px 6px; border-radius:8px; font-size:12px; }
+    .badge-warn { background:#FEE2E2; color:#B91C1C; }  /* red tint for alerts */
+    .subtitle { color:#6B7280; font-size:12px; margin-top:-6px; margin-bottom:8px; }
+.kpi-val{white-space:nowrap;}
+    
+    .nowrap{ white-space: nowrap; }
+    .w-code{ width: 110px; }
+    .w-phase{ width: 90px; }
+    .w-end{ width: 130px; }
+    </style>
 </head>
 <body class="gap-bg min-h-screen text-gray-900">
-  <div class="max-w-7xl mx-auto p-5 space-y-4">
+  <div class="max-w-[1600px] xl:max-w-[1800px] mx-auto p-5 space-y-4">
     <header class="flex flex-col md:flex-row md:items-center md:justify-between mb-2 gap-3">
       <h1 class="text-white text-2xl md:text-3xl font-bold">📊 Escritório de Projetos</h1>
       <div class="flex items-center gap-3">
@@ -59,10 +70,10 @@
     <div id="alert" class="hidden p-3 rounded-lg bg-red-50 text-red-700 text-sm mb-3"></div>
     <!-- SCOREBOARD -->
     <section id="scoreboard" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-      <div class="card text-center"><div class="muted">Em execução</div><div id="scExec" class="text-3xl font-semibold">0</div></div>
-      <div class="card text-center"><div class="muted">Vencidas</div><div id="scVencidas" class="text-3xl font-semibold">0</div></div>
-      <div class="card text-center"><div class="muted">Concluídas no mês</div><div id="scConcluidasMes" class="text-3xl font-semibold">0</div></div>
-      <div class="card text-center"><div class="muted">Progresso do projeto</div><div id="scProg" class="text-3xl font-semibold">0%</div></div>
+      <div class="card text-center"><div class="muted">Em execução</div><div id="scExec" class="text-3xl font-semibold kpi-val">0</div></div>
+      <div class="card text-center"><div class="muted">Vencidas</div><div id="scVencidas" class="text-3xl font-semibold kpi-val">0</div></div>
+      <div class="card text-center"><div class="muted">Concluídas no mês</div><div id="scConcluidasMes" class="text-3xl font-semibold kpi-val">0</div></div>
+      <div class="card text-center"><div class="muted">Progresso do projeto</div><div id="scProg" class="text-3xl font-semibold kpi-val">0%</div></div>
     </section>
 
 
@@ -70,35 +81,38 @@
     <section class="grid-panels">
       <div class="panel col-span-12 md:col-span-4">
         <h2>Distribuição por Status</h2>
-        <div class="donut-wrap"><canvas id="statusPie" height="120"></canvas></div>
+<p class=\"subtitle\">Use barras para comparar proporções com precisão (recomendação de Few).</p>
+        <div class="donut-wrap"><canvas id="statusPie" height="180"></canvas></div>
       </div>
       <div class="panel col-span-12 md:col-span-4">
         <h2>Saúde do Plano (Abertas)</h2>
-        <div class="donut-wrap"><canvas id="healthPie" height="120"></canvas></div>
+<p class=\"subtitle\">Evidencie o problema: destaque atrasos e reduza cores nos demais.</p>
+        <div class="donut-wrap"><canvas id="healthPie" height="180"></canvas></div>
       </div>
       <div class="panel col-span-12 md:col-span-4">
         <h2>Throughput – últimas 12 semanas</h2>
         <canvas id="throughput" height="160"></canvas>
       </div>
-      <div class="panel col-span-12 md:col-span-8">
+      <div class="panel col-span-12 md:col-span-6">
         <h2>Workload — Itens Abertos por Responsável (Top 10)</h2>
         <canvas id="workload" height="200"></canvas>
       </div>
-      <div class="panel col-span-12 md:col-span-4">
-        <h2>Distribuição por Fase</h2>
-        <canvas id="phaseBar" height="200"></canvas>
+      <div class="panel col-span-12 md:col-span-6">
+        <h2>Ações Vencidas — Top 10 por Responsável</h2>
+        <canvas id="overdueWorkload" height="200"></canvas>
       </div>
       <div class="panel col-span-12 md:col-span-6">
         <h2>Ações Vencidas por Fase</h2>
+<p class=\"subtitle\">Compare fases com mais itens críticos (barras facilitam leitura).</p>
         <div class="donut-wrap"><canvas id="overduePhasePie" height="140"></canvas></div>
       </div>
       <div class="panel col-span-12 md:col-span-6">
         <h2>Ações Concluídas por Fase</h2>
+<p class=\"subtitle\">Mostre volume de entregas por fase de forma comparável.</p>
         <div class="donut-wrap"><canvas id="donePhasePie" height="140"></canvas></div>
       </div>
     </section>
-
-    <!-- BLOCO 2: Lista operacional + filtros/abas/export -->
+<!-- BLOCO 2: Lista operacional + filtros/abas/export -->
     <section class="panel">
       <div class="flex flex-col gap-3">
         <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
@@ -120,18 +134,21 @@
           <table class="min-w-full tbl">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-4 py-3 cursor-pointer select-none" data-sort="codigo" onclick="setSort('codigo')">Código <span class="sort-ind">↕</span></th>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="codigo" onclick="setSort('codigo')"><span class="nowrap">Código</span> <span class="sort-ind">↕</span></th>
                 <th class="px-4 py-3 cursor-pointer select-none" data-sort="nome" onclick="setSort('nome')">Nome <span class="sort-ind">↕</span></th>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="pertence" onclick="setSort('pertence')">
+                  Pertence a <span class="sort-ind">↕</span>
+                </th>
                 <th class="px-4 py-3 cursor-pointer select-none" data-sort="resp" onclick="setSort('resp')">Responsável <span class="sort-ind">↕</span></th>
-                <th class="px-4 py-3 cursor-pointer select-none" data-sort="fase" onclick="setSort('fase')">Fase <span class="sort-ind">↕</span></th>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="fase" onclick="setSort('fase')"><span class="nowrap">Fase</span> <span class="sort-ind">↕</span></th>
                 <th class="px-4 py-3 cursor-pointer select-none" data-sort="status" onclick="setSort('status')">Status <span class="sort-ind">↕</span></th>
-                <th class="px-4 py-3 cursor-pointer select-none" data-sort="fim" onclick="setSort('fim')">Término <span class="sort-ind">↕</span></th>
+                <th class="px-4 py-3 cursor-pointer select-none" data-sort="fim" onclick="setSort('fim')"><span class="nowrap">Término</span> <span class="sort-ind">↕</span></th>
                 <th class="px-4 py-3 cursor-pointer select-none" data-sort="progresso" onclick="setSort('progresso')">Progresso <span class="sort-ind">↕</span></th>
                 <th class="px-4 py-3 cursor-pointer select-none" data-sort="atraso" onclick="setSort('atraso')">Atraso (pp) <span class="sort-ind">↕</span></th>
               </tr>
             </thead>
             <tbody id="rows">
-              <tr><td class="px-4 py-5 text-gray-500" colspan="8">Nenhum item. Dica: use “Enviar planilha”.</td></tr>
+              <tr><td class="px-4 py-5 text-gray-500" colspan="9">Nenhum item. Dica: use “Enviar planilha”.</td></tr>
             </tbody>
           </table>
         </div>
@@ -171,6 +188,7 @@ const showError = (msg) => { const a = byId('alert'); a.textContent = msg; a.cla
 const clearError = () => byId('alert').classList.add('hidden');
 
 const H = {
+  pertence: 'Pertence a',
   executado: 'Trabalho executado',
   codigo: 'Código',
   nome: 'Nome',
@@ -251,10 +269,14 @@ function updateSortIndicators(){
 
 
 
+
 function renderScoreboard(rows){
   const today = new Date();
   let exec=0, vencidas=0, conclMes=0;
   let totalExec = 0, totalPlan = 0;
+  let totalRows = rows.length;
+  let openItems = 0;
+
   rows.forEach(r=>{
     const status = String(r[H.status]||'').toLowerCase();
     const isClosed = status.includes('conclu') || status.includes('cancel');
@@ -262,32 +284,32 @@ function renderScoreboard(rows){
     let end = r[H.fim]; end = typeof end==='number'? serialToDate(end): parseDate(end);
     let concl = r[H.concluida]; concl = typeof concl==='number'? serialToDate(concl): parseDate(concl);
 
-    // planned work (PV)
     const dur = parseFloat(H.duracao ? r[H.duracao] : r['Duração']) || 0;
     if (dur > 0) totalPlan += dur;
 
-    // executed work (EV) can be percent or absolute
     const raw = r[H.executado];
     let executed = 0;
     if (raw !== undefined && raw !== null){
       const s = String(raw).trim();
-      if (s.includes('%')){ // percent value
+      if (s.includes('%')){
         const pct = parsePct(s); 
         if (!isNaN(pct) && dur>0) executed = (pct/100) * dur;
       } else {
         const val = parseFloat(s.replace(',','.'));
-        if (!isNaN(val)) executed = val; // absolute units (same unit as Duração)
+        if (!isNaN(val)) executed = val;
       }
     }
-    if (dur > 0) totalExec += Math.min(executed, dur); // cap to planned
+    if (dur > 0) totalExec += Math.min(executed, dur);
     if (isExec) exec++;
+    if (!isClosed) openItems++;
     if (!isClosed && end && today>end){ vencidas++; }
     if (concl && concl.getMonth()===today.getMonth() && concl.getFullYear()===today.getFullYear()) conclMes++;
   });
   const prog = totalPlan>0 ? Math.round((totalExec/totalPlan)*100) : 0;
+  const vencPerc = openItems>0 ? Math.round((vencidas/openItems)*100) : 0;
 
-  byId('scExec').textContent = exec;
-  byId('scVencidas').textContent = vencidas;
+  byId('scExec').textContent = exec + ' / ' + totalRows;
+  byId('scVencidas').textContent = vencidas + (openItems ? ' ('+vencPerc+'% das abertas)' : '');
   byId('scConcluidasMes').textContent = conclMes;
   byId('scProg').textContent = prog + '%';
 }
@@ -381,61 +403,153 @@ function computeLeadTimes(rows){
 
 // ---------- Charts renderers ----------
 
-function renderOverdueDonePhasePies(overdueCounts, doneCounts){
-  // Overdue by Phase
+
+function renderOverdueDonePhaseBars(overdueCounts, doneCounts){
+  // Overdue by Phase (highlight with red)
   charts.overduePhase && charts.overduePhase.destroy();
+  const ovLabels = Object.keys(overdueCounts);
+  const ovData = Object.values(overdueCounts);
+  const ovMax = Math.max(1, ...ovData) * 1.1;
   charts.overduePhase = new Chart(byId('overduePhasePie'), {
-    type: 'pie',
-    data: { labels: Object.keys(overdueCounts), datasets: [{ data: Object.values(overdueCounts), backgroundColor: ['#EF4444','#F59E0B','#3B82F6','#10B981','#8B5CF6','#06B6D4','#A78BFA','#84CC16','#F97316','#94A3B8'] }] },
-    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'% ('+v+')':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
+    type: 'bar',
+    data: { labels: ovLabels, datasets: [{ data: ovData, label:'Vencidas', borderRadius:8, borderWidth:0, backgroundColor: ovLabels.map(()=> '#EF4444') , barThickness:14, maxBarThickness:18}] },
+    options: { categoryPercentage:0.7, barPercentage:0.7, indexAxis:'y', plugins:{ legend:{ display:false }, datalabels:{ clip:false, clamp:true,  anchor:'end', align:'right', formatter:(v)=> v||'', offset:6, font:{weight:'600'} } },
+      scales:{ x:{ beginAtZero:true, suggestedMax:ovMax, grid:{ color:'rgba(0,0,0,.08)' }}, y:{ grid:{ display:false }, ticks:{ autoSkip:false, maxRotation:0 } } } }
   });
-  // Done by Phase
+  // Done by Phase (neutral)
   charts.donePhase && charts.donePhase.destroy();
+  const dnLabels = Object.keys(doneCounts);
+  const dnData = Object.values(doneCounts);
+  const dnMax = Math.max(1, ...dnData) * 1.1;
   charts.donePhase = new Chart(byId('donePhasePie'), {
-    type: 'pie',
-    data: { labels: Object.keys(doneCounts), datasets: [{ data: Object.values(doneCounts), backgroundColor: ['#10B981','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#A78BFA','#84CC16','#F97316','#94A3B8'] }] },
-    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'% ('+v+')':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
+    type: 'bar',
+    data: { labels: dnLabels, datasets: [{ data: dnData, label:'Concluídas', borderRadius:8, borderWidth:0, backgroundColor: dnLabels.map(()=> '#9CA3AF') , barThickness:14, maxBarThickness:18}] },
+    options: { categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, indexAxis:'y', plugins:{ legend:{ display:false }, datalabels:{ clip:false, clamp:true,  clip:false, clamp:true,  anchor:'end', align:'right', formatter:(v)=> v||'', offset:6, font:{weight:'600'} } },
+      scales:{ x:{ beginAtZero:true, suggestedMax:dnMax, grid:{ color:'rgba(0,0,0,.08)' }}, y:{ grid:{ display:false }, ticks:{ autoSkip:false, maxRotation:0 } } } }
+  });
+}
+// removed leftover pie code per fix
+// removed leftover pie code per fix
+// removed leftover pie code per fix
+// removed leftover pie code per fix
+// removed leftover pie code per fix
+// removed leftover pie code per fix
+// removed leftover pie code per fix
+// removed leftover pie code per fix
+// removed leftover pie code per fix
+// removed leftover pie code per fix
+// removed leftover pie code per fix
+// removed leftover pie code per fix
+
+function renderStatusBar(ctx, statusCounts){
+  charts.status && charts.status.destroy();
+  const labels = Object.keys(statusCounts);
+  const data = Object.values(statusCounts);
+  const xMax = Math.max(1, ...data) * 1.1;
+  charts.status = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets:[{ 
+      data, 
+      label:'Itens', 
+      borderRadius:8, 
+      borderWidth:0,
+      backgroundColor: labels.map(()=> '#9CA3AF') // neutral gray for all
+    }]},
+    options: { categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, 
+      indexAxis:'y',
+      scales:{ 
+        x:{ beginAtZero:true, suggestedMax:xMax, grid:{ color:'rgba(0,0,0,.08)' }}, 
+        y:{ grid:{ display:false } }
+      },
+      plugins:{ legend:{ display:false }, datalabels:{ clip:false, clamp:true,  clip:false, clamp:true,  clip:false, clamp:true,  anchor:'end', align:'right', formatter:(v)=> v||'', offset:6, font:{weight:'600'} } }
+    }
+});
+}
+
+function renderHealthBar(ctx, health){
+  charts.health && charts.health.destroy();
+  const labels = ['Atrasada','No trilho','Adiantada'];
+  const data = [health.atrasada, health.notrilho, health.adiantada];
+  charts.health = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets:[{ 
+      data, 
+      label:'Ações abertas',
+      borderRadius:8,
+      borderWidth:0,
+      backgroundColor: ['#EF4444', '#D1D5DB', '#BDBDBD']
+    }]},
+    options: { categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, 
+      scales:{ y:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,.08)' }}, x:{ grid:{ display:false } } },
+      plugins:{ legend:{ display:false }, datalabels:{ clip:false, clamp:true,  clip:false, clamp:true,  clip:false, clamp:true,  anchor:'end', align:'top', formatter:(v)=> v||'', offset:4, font:{weight:'600'} } }
+    }
   });
 }
 
-function renderStatusPie(ctx, statusCounts){
-  charts.status && charts.status.destroy();
-  charts.status = new Chart(ctx, {
-    type: 'pie',
-    data: { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#F59E0B','#EF4444','#10B981','#3B82F6','#8B5CF6'] }] },
-    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'% ('+v+')':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
-  });
-}
-function renderHealthPie(ctx, health){
-  charts.health && charts.health.destroy();
-  charts.health = new Chart(ctx, {
-    type: 'pie',
-    data: { labels: ['Adiantada','Atrasada','No trilho'], datasets: [{ data: [health.adiantada, health.atrasada, health.notrilho], backgroundColor: ['#F59E0B','#3B82F6','#10B981'] }] },
-    options: { plugins: { datalabels: { formatter: (v, ctx)=>{ const total = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0)||1; const p = Math.round((v/total)*100); return p? p+'% ('+v+')':''; }, anchor:'center', align:'center', font:{weight:'600'}, padding:2 } } }
-  });
-}
 function renderThroughput(ctx, weeks){
   charts.throughput && charts.throughput.destroy();
   charts.throughput = new Chart(ctx, {
     type: 'line',
-    data: { labels: weeks.map(w=>formatBR(w.start)), datasets: [{ data: weeks.map(w=>w.count), tension:.3, borderWidth:2, pointRadius:3, label:'Itens concluídos/semana' }] },
-    options: { scales:{ y:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,.08)'}}, x:{ grid:{ color:'rgba(0,0,0,.06)'}}}, plugins:{ legend:{ display:false }, datalabels:{ align:'top', anchor:'end', formatter:(v)=> v||'', offset:4, font:{weight:'600'} } } }
+    data: { labels: weeks.map(w=>formatBR(w.start)), datasets: [{ data: weeks.map(w=>w.count), tension:.3, borderWidth:2, pointRadius:3, label:'Itens concluídos/semana' , barThickness:14, maxBarThickness:18}] },
+    options: { categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, scales:{ y:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,.08)'}}, x:{ grid:{ color:'rgba(0,0,0,.06)'}}}, plugins:{ legend:{ display:false }, datalabels:{ clip:false, clamp:true,  clip:false, clamp:true,  clip:false, clamp:true,  align:'top', anchor:'end', formatter:(v)=> v||'', offset:4, font:{weight:'600'} } } }
   });
 }
 function renderWorkload(ctx, top){
   charts.workload && charts.workload.destroy();
   charts.workload = new Chart(ctx, {
     type: 'bar',
-    data: { labels: top.map(r=>r.name), datasets:[{ data: top.map(r=>r.count), backgroundColor:'#6366F1', borderRadius:8, borderWidth:0, label:'Abertos' }] },
-    options: { indexAxis:'y', scales:{ x:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,.08)' }}, y:{ grid:{ display:false } } }, plugins:{ legend:{ display:false }, datalabels:{ anchor:'end', align:'right', formatter:(v)=> v||'', offset:6, font:{weight:'600'} } } }
+    data: { labels: top.map(r=>r.name), datasets:[{ data: top.map(r=>r.count), backgroundColor:'#6366F1', borderRadius:8, borderWidth:0, label:'Abertos' , barThickness:14, maxBarThickness:18, barThickness:18, maxBarThickness:24}] },
+    options: { categoryPercentage:0.9, barPercentage:0.9, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, indexAxis:'y', scales:{ x:{ beginAtZero:true, suggestedMax: Math.max(1, ...top.map(r=>r.count)) * 1.1, grid:{ color:'rgba(0,0,0,.08)' }}, y:{ grid:{ display:false } } }, plugins:{ legend:{ display:false }, datalabels:{ clip:false, clamp:true,  clip:false, clamp:true,  clip:false, clamp:true,  clip:false, clamp:true,  anchor:'end', align:'right', formatter:(v)=> v||'', offset:6, font:{weight:'600'} } } }
   });
 }
+
+
+
+
+function renderOverdueWorkload(ctx, top){
+  charts.overdueWorkload && charts.overdueWorkload.destroy();
+  charts.overdueWorkload = new Chart(ctx, {
+    type: 'bar',
+    data: { 
+      labels: top.map(r=>r.name), 
+      datasets:[{ 
+        data: top.map(r=>r.count), 
+        backgroundColor:'#EF4444',
+        borderRadius:8, 
+        borderWidth:0, 
+        label:'Vencidas' 
+      , barThickness:14, maxBarThickness:18, barThickness:18, maxBarThickness:24, barThickness:20, maxBarThickness:26}] 
+    },
+    options: { categoryPercentage:0.95, barPercentage:0.95, categoryPercentage:0.9, barPercentage:0.9, categoryPercentage:0.9, barPercentage:0.9, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, 
+      indexAxis:'y', 
+      scales:{ 
+        x:{ beginAtZero:true, suggestedMax: Math.max(1, ...top.map(r=>r.count)) * 1.1, grid:{ color:'rgba(0,0,0,.08)' }}, 
+        y:{ grid:{ display:false } } 
+      }, 
+      plugins:{ 
+        legend:{ display:false }, 
+        datalabels:{ 
+          anchor:'end', 
+          align:'right', 
+          formatter:(v)=> v||'', 
+          offset:6, 
+          font:{weight:'600'} 
+        } 
+      } 
+    }
+  });
+}
+
+
+
+
+
 function renderPhaseBar(ctx, counts){
   charts.phase && charts.phase.destroy();
   charts.phase = new Chart(ctx, {
     type: 'bar',
-    data: { labels: Object.keys(counts), datasets:[{ data: Object.values(counts), backgroundColor:['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#A78BFA','#84CC16','#F97316','#94A3B8'], borderRadius:6, borderWidth:0, label:'Itens' }] },
-    options: { plugins:{ legend:{ display:false }, datalabels:{ anchor:'end', align:'top', formatter:(v)=> v||'', offset:4, font:{weight:'600'} } }, scales:{ y:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,.08)' }}, x:{ grid:{ display:false } } } }
+    data: { labels: Object.keys(counts), datasets:[{ data: Object.values(counts), backgroundColor:['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#A78BFA','#84CC16','#F97316','#94A3B8'], borderRadius:6, borderWidth:0, label:'Itens' , barThickness:14, maxBarThickness:18}] },
+    options: { categoryPercentage:0.95, barPercentage:0.95, categoryPercentage:0.9, barPercentage:0.9, categoryPercentage:0.9, barPercentage:0.9, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, categoryPercentage:0.7, barPercentage:0.7, plugins:{ legend:{ display:false }, datalabels:{ clip:false, clamp:true,  clip:false, clamp:true,  clip:false, clamp:true,  clip:false, clamp:true,  clip:false, clamp:true,  clip:false, clamp:true,  anchor:'end', align:'top', formatter:(v)=> v||'', offset:4, font:{weight:'600'} } }, scales:{ y:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,.08)' }}, x:{ grid:{ display:false } } } }
   });
 }
 
@@ -458,7 +572,9 @@ function getListItems(){
     const obj = {
       codigo: r[H.codigo],
       nome: r[H.nome],
-      resp: r[H.responsavel],
+      
+      pertence: r[H.pertence],
+resp: r[H.responsavel],
       fase: shortPhase(r[H.fase] || 'Sem fase'),
       status: r[H.status],
       progresso: parsePct(r[H.progresso]),
@@ -485,7 +601,7 @@ function filterList(items){
     result = result.filter(x =>
       String(x.codigo||'').toLowerCase().includes(s) ||
       String(x.nome||'').toLowerCase().includes(s) ||
-      String(x.resp||'').toLowerCase().includes(s) ||
+      String(x.pertence||'').toLowerCase().includes(s) || String(x.resp||'').toLowerCase().includes(s) ||
       String(x.fase||'').toLowerCase().includes(s)
     );
   }
@@ -513,20 +629,21 @@ function renderList(){
   const tbody = byId('rows');
   tbody.innerHTML = '';
   if (!items.length){
-    tbody.innerHTML = `<tr><td class="px-4 py-5 text-gray-500" colspan="8">Nenhum item para os filtros atuais.</td></tr>`;
+    tbody.innerHTML = `<tr><td class="px-4 py-5 text-gray-500" colspan="9">Nenhum item para os filtros atuais.</td></tr>`;
   } else {
     items.forEach(it=>{
       const end = it.fim ? new Date(it.fim) : null;
       tbody.insertAdjacentHTML('beforeend', `
-        <tr class="border-t last:border-b">
-          <td class="px-4 py-3">${it.codigo||'—'}</td>
+        <tr class="border-t last:border-b ${it.isOverdue ? 'row-overdue' : ''}">
+          <td class="px-4 py-3 nowrap w-code">${it.codigo||'—'}</td>
           <td class="px-4 py-3">${it.nome||'—'}</td>
+          <td class="px-4 py-3">${it.pertence || '—'}</td>
           <td class="px-4 py-3">${it.resp||'—'}</td>
-          <td class="px-4 py-3"><span class="pill">${it.fase||'Sem fase'}</span></td>
+          <td class="px-4 py-3 nowrap w-phase"><span class="pill">${it.fase||'Sem fase'}</span></td>
           <td class="px-4 py-3"><span class="pill">${it.status||'—'}</span></td>
-          <td class="px-4 py-3">${end ? formatBR(end) : '—'}</td>
+          <td class="px-4 py-3 nowrap w-end">${end ? formatBR(end) : '—'}${it.isOverdue ? ' ⏰' : ''}</td>
           <td class="px-4 py-3">${isNaN(it.progresso)?'—': it.progresso + '%'}</td>
-          <td class="px-4 py-3">${it.atraso>0 ? it.atraso : 0}</td>
+          <td class="px-4 py-3">${it.atraso>0 ? '<span class="cell-badge badge-warn">'+it.atraso+'</span>' : 0}</td>
         </tr>
       `);
     });
@@ -551,8 +668,8 @@ function exportList(){
     });
   }
 
-  const header = ['Código','Nome','Responsável','Fase','Status','Término','Progresso','Atraso (pp)'];
-  const rows = items.map(it=>[it.codigo,it.nome,it.resp,it.fase,it.status||'', it.fim?formatBR(it.fim):'', isNaN(it.progresso)?'':(it.progresso+'%'), it.atraso]);
+  const header = ['Código','Nome','Pertence a','Responsável','Fase','Status','Término','Progresso','Atraso (pp)'];
+  const rows = items.map(it=>[it.codigo,it.nome, it.pertence,it.resp,it.fase,it.status||'', it.fim?formatBR(it.fim):'', isNaN(it.progresso)?'':(it.progresso+'%'), it.atraso]);
   const csv = [header, ...rows].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -618,6 +735,7 @@ function loadFromWorkbook(workbook){
     return null;
   }
   const map = {
+    pertence: resolveHeader(headers, [H.pertence, 'Pertence a', 'Pertence à', 'Pertence', 'Pertence ao']),
     codigo: resolveHeader(headers, [H.codigo, 'Código']),
     nome: resolveHeader(headers, [H.nome, 'Nome', 'Nome (O quê?)']),
     responsavel: resolveHeader(headers, [H.responsavel, 'Responsável', 'Responsável pela ação (Quem?)']),
@@ -649,12 +767,11 @@ function loadFromWorkbook(workbook){
   sel.innerHTML = '<option value="">Todas as fases</option>' + DATA.derived.phases.map(p=>`<option value="${p}">${p}</option>`).join('');
 
   // charts
-  renderStatusPie(byId('statusPie'), DATA.derived.statusCounts);
-  renderHealthPie(byId('healthPie'), DATA.derived.health);
+  renderStatusBar(byId('statusPie'), DATA.derived.statusCounts);
+  renderHealthBar(byId('healthPie'), DATA.derived.health);
   renderThroughput(byId('throughput'), DATA.derived.weeks);
   renderWorkload(byId('workload'), DATA.derived.top);
-  renderPhaseBar(byId('phaseBar'), DATA.derived.phaseCounts);
-
+  
   // new pies: overdue and done by phase
   const today = new Date();
   const overdueCounts = {};
@@ -667,9 +784,27 @@ function loadFromWorkbook(workbook){
     if (!isClosed && end && today > end){ overdueCounts[phase] = (overdueCounts[phase]||0) + 1; }
     if (isClosed){ doneCounts[phase] = (doneCounts[phase]||0) + 1; }
   });
-  renderOverdueDonePhasePies(overdueCounts, doneCounts);
+  renderOverdueDonePhaseBars(overdueCounts, doneCounts);
 
-  // list & stats
+// --- Top 10 de responsáveis com ações vencidas
+const overdueOwners = {};
+for (const r of rows){
+  const resp = (String(r[H.responsavel] ?? '').trim()) || '—';
+  const status = String(r[H.status]||'').toLowerCase();
+  const isClosed = status.includes('conclu') || status.includes('cancel');
+  let end = r[H.fim]; 
+  end = typeof end==='number'? serialToDate(end): parseDate(end);
+  if (!isClosed && end && today > end){
+    overdueOwners[resp] = (overdueOwners[resp]||0) + 1;
+  }
+}
+const topOverdue = Object.entries(overdueOwners)
+  .map(([name,count])=>({name,count}))
+  .sort((a,b)=>b.count-a.count)
+  .slice(0,10);
+renderOverdueWorkload(byId('overdueWorkload'), topOverdue);
+
+// list & stats
   renderList();
   renderLeadStats();
   renderDiag(DATA.derived);
